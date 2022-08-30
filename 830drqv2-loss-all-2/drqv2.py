@@ -73,7 +73,7 @@ class Linear(nn.Module):
         
 class STN(nn.Module):
     def __init__(self, input_size, output_size=6, linear_size=32,
-                 num_stage=2, p_dropout=0.5):
+                 num_stage=2, p_dropout=0.5, alpha_agnet=None):
         super(STN, self).__init__()
         # print('point 0')
         self.linear_size = linear_size
@@ -114,6 +114,8 @@ class STN(nn.Module):
                                     [0, 1, 0]]], dtype=torch.float32).cuda()
         self.pad_row = torch.tensor([[0., 0., 1.]], dtype=torch.float32).cuda()
         self.mse_loss = nn.MSELoss()
+
+        self.alpha_agnet = alpha_agnet
 
 
     def div_loss(self, theta):
@@ -196,7 +198,9 @@ class STN(nn.Module):
         for i in range(n):
             d_theta.append(theta[i,:,:].trace())
         d_tensor = torch.tensor(d_theta)
-        d_target = torch.ones(d_tensor.size())*10
+        d_target = torch.ones(d_tensor.size())*self.alpha_agnet
+        # ipdb.set_trace()
+        # print(self.alpha_agnet)
         loss_theta = self.mse_loss(d_tensor, d_target)
          ##change point 1
 
@@ -295,7 +299,9 @@ class Critic(nn.Module):
 class DrQV2Agent:
     def __init__(self, obs_shape, action_shape, device, lr, feature_dim,
                  hidden_dim, critic_target_tau, num_expl_steps,
-                 update_every_steps, stddev_schedule, stddev_clip, use_tb):
+                 update_every_steps, stddev_schedule, stddev_clip, use_tb, alpha_agnet):
+
+
         self.device = device
         self.critic_target_tau = critic_target_tau
         self.update_every_steps = update_every_steps
@@ -322,6 +328,7 @@ class DrQV2Agent:
 
 
 
+
         # data augmentation
         self.aug = RandomShiftsAug(pad=4)
 
@@ -330,7 +337,10 @@ class DrQV2Agent:
         adam_beta1 = 0.5
         aug_net_weight_decay = 1e-3
         self.adv_weight_stn = 0.1
-        self.aug_net = STN(input_size=1, linear_size=10).to(device)
+
+        # import ipdb.set_trace()
+
+        self.aug_net = STN(input_size=1, linear_size=10, alpha_agnet=alpha_agnet).to(device)
         self.noise_dim = 1
         self.div_loss_weight = 0.1
         self.diversity_loss_weight = 0.1
